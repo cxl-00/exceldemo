@@ -1,13 +1,15 @@
 package com.example.demo;
 
+import com.alibaba.excel.EasyExcel;
 import com.alibaba.fastjson.JSONObject;
 import com.example.demo.model.PageReportData;
-import com.example.demo.model.TableCells;
+import com.example.demo.model.common.TableCells;
 import com.example.demo.utils.OkHttpRequest;
 import okhttp3.Response;
 import org.apache.poi.hssf.usermodel.*;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -59,11 +61,17 @@ public class DemoHandler {
         //调url获取数据
         List<Map<String,String>> result = getDataByUrl("");
         //将数据加载到excel文档并输出
-        genExcelFile(pageReportData,result);
+        genExcelFileByEasyExcel(pageReportData,result);
 
     }
 
-    public static void genExcelFile(PageReportData pageReportData, List<Map<String,String>> resultData){
+    /**
+     * 用poi的方式生成excel
+     *
+     * @param pageReportData
+     * @param resultData
+     */
+    public static void genExcelFileByPoi(PageReportData pageReportData, List<Map<String,String>> resultData){
         // 第一步，创建一个workbook，对应一个Excel文件
         HSSFWorkbook workbook = new HSSFWorkbook();
         // 第二步，在webbook中添加一个sheet,对应Excel文件中的sheet
@@ -99,6 +107,32 @@ public class DemoHandler {
 
     }
 
+
+    public static void genExcelFileByEasyExcel(PageReportData pageReportData, List<Map<String,String>> resultData){
+        List<TableCells> headerTableCells = pageReportData.getFixedPage().getPages().get(0).getReportItems().get(0).getHeader().getTableRows().get(0).getTableCells();
+        List<TableCells> resultTableCells =  pageReportData.getFixedPage().getPages().get(0).getReportItems().get(0).getDetails().getTableRows().get(0).getTableCells();
+        List<List<String>> listHead = new ArrayList<List<String>>();
+        headerTableCells.forEach(tableCells -> {
+            List<String> head = new ArrayList<>();
+            head.add(tableCells.getItem().getValue());
+            listHead.add(head);
+        });
+
+        List<List<String>> listDetail = new ArrayList<List<String>>();
+        resultData.forEach(result ->{
+            List<String> singleCellList = new ArrayList<>();
+            resultTableCells.forEach(tableCells -> {
+                String key = getKeyName(tableCells.getItem().getValue());
+                singleCellList.add(result.get(key));
+            });
+            listDetail.add(singleCellList);
+        });
+        String fileName = "E:\\webData\\easyNoModel1.xlsx";
+        // 这里 需要指定写用哪个class去写，然后写到第一个sheet，名字为模板 然后文件流会自动关闭
+        EasyExcel.write(fileName).head(listHead).sheet("模板").doWrite(listDetail);
+    }
+
+
     public static String getKeyName(String key){
         return key.replace("=Fields!","").replace(".Value","");
     }
@@ -109,7 +143,7 @@ public class DemoHandler {
         //调url获取数据
         try{
             OkHttpRequest okHttpRequest = new OkHttpRequest();
-            String url = "http://xkit1.dataserver.cn/datakit/ims/prod/device/shift?type=shift&customerCode=0000102374&companyId=fb4d0be7-5eac-4d2b-9922-084d708852bf&timeRange=2020.08.01%2020:00:00,2020.08.31%2023:59:59";
+            String url = "http://10.44.218.44/resultData.json";
             Response response = okHttpRequest.get(url);
             String result = response.body().string();
             QueryResultData resultData = JSONObject.parseObject(result,QueryResultData.class);
